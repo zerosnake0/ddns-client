@@ -31,7 +31,7 @@ var (
 func init() {
 	flag.IntVar(&port, "port", 9000, "port")
 	flag.StringVar(&configPath, "interval", "config.json", "config path")
-	flag.StringVar(&logPath, "logPath", "", "log path")
+	flag.StringVar(&logPath, "log", "", "log path")
 	flag.Parse()
 
 	if logPath != "" {
