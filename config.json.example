@@ -1,0 +1,7 @@
+{
+  "duckdns": {
+    "interval": 5,
+    "domain": "xxxxxxx",
+    "token": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  }
+}
