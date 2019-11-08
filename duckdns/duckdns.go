@@ -1,13 +1,13 @@
 package duckdns
 
 import (
-	"net/http"
-	"time"
 	"io"
-	"net/url"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -66,7 +66,11 @@ func (d *DuckDns) once(logger *log.Logger) {
 	values.Set("verbose", "true")
 	resp, err := http.Get(link + values.Encode())
 	if err != nil {
-		logger.Printf("unable to get: %+v", err)
+		es := err.Error()
+		if d.Token != "" {
+			es = strings.ReplaceAll(es, d.Token, "###token###")
+		}
+		logger.Println("unable to get: ", es)
 		return
 	}
 	defer resp.Body.Close()
