@@ -5,6 +5,7 @@ import (
 	"flag"
 	"io"
 	"io/ioutil"
+	stdLog "log"
 	"net/http"
 	"strconv"
 	"time"
@@ -50,21 +51,20 @@ func init() {
 	flag.StringVar(&logPath, "log", "", "log path")
 	flag.Parse()
 
-	log.Logger = zerolog.New(zerolog.NewConsoleWriter()).
-		With().Timestamp().Caller().Logger()
-
 	var w io.Writer
 	if logPath == "" {
 		w = zerolog.NewConsoleWriter()
 	} else {
+		fileWriter := &lumberjack.Logger{
+			Filename:   logPath,
+			MaxSize:    1,
+			MaxBackups: 3,
+			Compress:   true,
+		}
 		w = zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
-			w.Out = &lumberjack.Logger{
-				Filename:   logPath,
-				MaxSize:    1,
-				MaxBackups: 3,
-				Compress:   true,
-			}
+			w.Out = fileWriter
 		})
+		stdLog.SetOutput(fileWriter)
 	}
 	log.Logger = zerolog.New(w).With().Timestamp().Caller().Logger()
 	util.SetLegoLogger(log.Logger)
@@ -120,6 +120,7 @@ func startDuckDns() {
 func getEngine() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.New()
+	gin.ErrorLogger()
 
 	engine.GET("/", func(c *gin.Context) {
 		c.String(http.StatusOK, "OK")
@@ -192,7 +193,12 @@ func errorHandler(cb func(c *gin.Context) (string, error)) func(c *gin.Context) 
 }
 
 func main() {
-	if err := getEngine().Run(":" + strconv.Itoa(port)); err != nil {
+	engine := getEngine()
+	sv := http.Server{
+		Addr:    ":" + strconv.Itoa(port),
+		Handler: engine,
+	}
+	if err := sv.ListenAndServe(); err != nil {
 		log.Fatal().Err(err).Msg("exiting")
 	}
 }
