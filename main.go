@@ -57,14 +57,18 @@ func init() {
 	if logPath == "" {
 		w = zerolog.NewConsoleWriter()
 	} else {
-		w = &lumberjack.Logger{
-			Filename:   logPath,
-			MaxSize:    1,
-			MaxBackups: 3,
-			Compress:   true,
-		}
+		w = zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
+			w.Out = &lumberjack.Logger{
+				Filename:   logPath,
+				MaxSize:    1,
+				MaxBackups: 3,
+				Compress:   true,
+			}
+		})
 	}
 	log.Logger = zerolog.New(w).With().Timestamp().Caller().Logger()
+	util.SetLegoLogger(log.Logger)
+
 	getConfig()
 }
 

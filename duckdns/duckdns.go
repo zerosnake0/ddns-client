@@ -2,6 +2,7 @@ package duckdns
 
 import (
 	"context"
+	"sync"
 
 	"github.com/go-acme/lego/certcrypto"
 	"github.com/go-acme/lego/certificate"
@@ -206,7 +207,14 @@ const (
 	DomainCertFile = "cert.pem"
 )
 
+var (
+	mu sync.Mutex
+)
+
 func Acme(ddCli *duckdns.Client, dirURL string, fsCache cache.Cache) error {
+	mu.Lock()
+	defer mu.Unlock()
+
 	ctx := context.TODO()
 
 	user := acmeuser.NewCachedUser(fsCache)
@@ -262,5 +270,6 @@ func Acme(ddCli *duckdns.Client, dirURL string, fsCache cache.Cache) error {
 	if err := fsCache.Put(ctx, DomainCertFile, certificates.Certificate); err != nil {
 		return err
 	}
+	log.Info().Msg("duckdns acme done")
 	return nil
 }
