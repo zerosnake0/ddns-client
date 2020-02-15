@@ -130,15 +130,19 @@ func getEngine() *gin.Engine {
 		s := jzon.NewStreamer()
 		defer jzon.ReturnStreamer(s)
 		s.Reset(c.Writer)
-		s.ObjectStart().
-			Field("elapsed").String(time.Now().Sub(res.Time).String()).
-			Field("code").Int(res.Code).
-			Field("raw").String(util.LocalByteToString(res.Raw)).
-			Field("ok").Bool(res.OK).
-			Field("ip").String(util.LocalByteToString(res.IP)).
-			Field("ipv6").String(util.LocalByteToString(res.IPv6)).
-			Field("action").String(util.LocalByteToString(res.Action)).
-			ObjectEnd()
+		if res == nil {
+			s.Null()
+		} else {
+			s.ObjectStart().
+				Field("elapsed").String(time.Now().Sub(res.Time).String()).
+				Field("code").Int(res.Code).
+				Field("raw").String(util.LocalByteToString(res.Raw)).
+				Field("ok").Bool(res.OK).
+				Field("ip").String(util.LocalByteToString(res.IP)).
+				Field("ipv6").String(util.LocalByteToString(res.IPv6)).
+				Field("action").String(util.LocalByteToString(res.Action)).
+				ObjectEnd()
+		}
 		s.Flush()
 		c.Writer.Flush()
 	})
