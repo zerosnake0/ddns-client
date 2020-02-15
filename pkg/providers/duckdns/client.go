@@ -65,16 +65,20 @@ func (c *Client) update(ctx context.Context, txt *string, clear *bool) (_ int, _
 		return
 	}
 	req.URL.RawQuery = values.Encode()
+	beg := time.Now()
 	resp, err := c.client.Do(req)
+	elapsed := time.Now().Sub(beg)
+	if txt == nil {
+		log.Debug().Err(err).Str("elapsed", elapsed.String()).
+			Msg("duckdns updated")
+	} else {
+		log.Debug().Err(err).Str("elapsed", elapsed.String()).
+			Str("txt", *txt).Msg("duckdns updated")
+	}
 	if err != nil {
 		return
 	}
 	defer resp.Body.Close()
-	if txt == nil {
-		log.Debug().Msg("duckdns updated")
-	} else {
-		log.Debug().Str("txt", *txt).Msg("duckdns updated")
-	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return

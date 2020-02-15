@@ -51,9 +51,13 @@ func init() {
 	flag.StringVar(&logPath, "log", "", "log path")
 	flag.Parse()
 
+	const timeFmt = "2006-01-02 15:04:05.999"
+
 	var w io.Writer
 	if logPath == "" {
-		w = zerolog.NewConsoleWriter()
+		w = zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
+			w.TimeFormat = timeFmt
+		})
 	} else {
 		fileWriter := &lumberjack.Logger{
 			Filename:   logPath,
@@ -63,6 +67,7 @@ func init() {
 		}
 		w = zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
 			w.Out = fileWriter
+			w.TimeFormat = timeFmt
 		})
 		stdLog.SetOutput(fileWriter)
 	}
