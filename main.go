@@ -2,17 +2,17 @@ package main
 
 import (
 	"flag"
-	"net/http"
-	"strconv"
-	"log"
 	"io"
 	"io/ioutil"
-	"encoding/json"
-	"os"
+	"net/http"
+	"strconv"
 
-	"gopkg.in/go-playground/validator.v8"
-	"github.com/natefinch/lumberjack"
 	"github.com/gin-gonic/gin"
+	"github.com/natefinch/lumberjack"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/zerosnake0/jzon"
+	"gopkg.in/go-playground/validator.v8"
 
 	"ddns-client/duckdns"
 )
@@ -21,7 +21,6 @@ var (
 	port       int
 	configPath string
 	logPath    string
-	logWriter  io.Writer = os.Stderr
 
 	config struct {
 		DuckDns *duckdns.DuckDns `json:"duckdns"`
@@ -34,31 +33,38 @@ func init() {
 	flag.StringVar(&logPath, "log", "", "log path")
 	flag.Parse()
 
-	if logPath != "" {
-		logWriter = &lumberjack.Logger{
+	log.Logger = zerolog.New(zerolog.NewConsoleWriter()).
+		With().Timestamp().Caller().Logger()
+
+	var w io.Writer
+	if logPath == "" {
+		w = zerolog.NewConsoleWriter()
+	} else {
+		w = &lumberjack.Logger{
 			Filename:   logPath,
 			MaxSize:    1,
 			MaxBackups: 3,
 			Compress:   true,
 		}
 	}
-	log.SetOutput(logWriter)
+	log.Logger = zerolog.New(w).With().Timestamp().Caller().Logger()
 	getConfig()
 }
 
 func getConfig() {
 	b, err := ioutil.ReadFile(configPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Str("path", configPath).
+			Msg("unable to read config")
 	}
-	if err := json.Unmarshal(b, &config); err != nil {
-		log.Fatal(err)
+	if err := jzon.Unmarshal(b, &config); err != nil {
+		log.Fatal().Err(err).Msg("bad config file")
 	}
 	if err := validator.New(&validator.Config{
 		TagName:      "binding",
 		FieldNameTag: "json",
 	}).Struct(&config); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("invalid config file")
 	}
 }
 
@@ -68,10 +74,12 @@ func getEngine() *gin.Engine {
 	engine.GET("/", func(c *gin.Context) {
 		c.String(http.StatusOK, "OK")
 	})
-	config.DuckDns.Wrap(logWriter, engine)
+	config.DuckDns.Wrap(engine)
 	return engine
 }
 
 func main() {
-	log.Fatal(getEngine().Run(":" + strconv.Itoa(port)))
+	if err := getEngine().Run(":" + strconv.Itoa(port)); err != nil {
+		log.Fatal().Err(err).Msg("exiting")
+	}
 }
