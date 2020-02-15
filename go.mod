@@ -20,6 +20,7 @@ require (
 	github.com/spf13/afero v1.2.2
 	github.com/zerosnake0/jzon v0.0.2
 	golang.org/x/crypto v0.0.0-20200214034016-1d94cc7ab1c6
+	golang.org/x/net v0.0.0-20200202094626-16171245cfb2 // indirect
 	golang.org/x/sys v0.0.0-20200212091648-12a6c2dcc1e4 // indirect
 	gopkg.in/go-playground/validator.v8 v8.18.2
 	gopkg.in/go-playground/validator.v9 v9.31.0 // indirect
