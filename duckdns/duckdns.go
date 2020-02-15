@@ -1,21 +1,21 @@
 package duckdns
 
 import (
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
-	"strings"
-	"time"
+	"context"
 
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
+	"github.com/go-acme/lego/certcrypto"
+	"github.com/go-acme/lego/certificate"
+	"github.com/go-acme/lego/lego"
+	"github.com/go-acme/lego/registration"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/crypto/acme"
 
-	"ddns-client/cert"
+	acmeuser "ddns-client/pkg/acme/user"
+	"ddns-client/pkg/cache"
+	"ddns-client/pkg/cert"
+	"ddns-client/pkg/providers/duckdns"
 )
+
+/*
 
 const (
 	link = "https://www.duckdns.org/update?"
@@ -139,7 +139,7 @@ func (d *DuckDns) once() {
 
 	// acme
 	if d.CacheDir != "" {
-		if err := d.acme(); err != nil {
+		if err := d.acme2(); err != nil {
 			d.logger.Error().Err(err).Msg("unable to update acme")
 			res.Acme.Error = err.Error()
 		}
@@ -152,7 +152,7 @@ func (d *DuckDns) once() {
 
 func (d *DuckDns) acme() (err error) {
 	d.logger.Info().Msg("checking certificate")
-	ok, err := cert.CheckCert(d.CacheDir)
+	ok, err := cert2.CheckCert(d.CacheDir)
 	if err != nil {
 		return err
 	}
@@ -161,14 +161,14 @@ func (d *DuckDns) acme() (err error) {
 		return nil
 	}
 	d.logger.Info().Msg("getting acme client...")
-	client, err := cert.GetClient(d.CacheDir)
+	client, err := cert2.GetClient(d.CacheDir)
 	if err != nil {
 		d.logger.Error().Err(err).Msg("unable to get acme client")
 		return err
 	}
 	d.logger.Info().Msg("got acme client")
 	domain := d.Domain + ".duckdns.org"
-	if err := cert.CreateCert(client, d.CacheDir, domain, []string{
+	if err := cert2.CreateCert(client, d.CacheDir, domain, []string{
 		domain, "*." + domain,
 	}, func(cli *acme.Client, order *acme.Authorization) (*acme.Challenge, error) {
 		var chal *acme.Challenge
@@ -195,6 +195,71 @@ func (d *DuckDns) acme() (err error) {
 		return chal, nil
 	}); err != nil {
 		// d.logger.Error().Err(err).Msg("unable to create certificate")
+		return err
+	}
+	return nil
+}
+*/
+
+const (
+	domainKeyFile  = "key.pem"
+	DomainCertFile = "cert.pem"
+)
+
+func Acme(ddCli *duckdns.Client, dirURL string, fsCache cache.Cache) error {
+	ctx := context.TODO()
+
+	user := acmeuser.NewCachedUser(fsCache)
+
+	config := lego.NewConfig(acmeuser.Wrap(user))
+
+	config.CADirURL = dirURL
+	config.Certificate.KeyType = certcrypto.RSA2048
+
+	legoCli, err := lego.NewClient(config)
+	if err != nil {
+		log.Error().Err(err).Msg("unable to get lego client")
+		return err
+	}
+
+	err = legoCli.Challenge.SetDNS01Provider(duckdns.NewDuckDnsProvider(ddCli))
+	if err != nil {
+		log.Error().Err(err).Msg("unable to set dns01 provider")
+		return err
+	}
+
+	reg, err := legoCli.Registration.Register(registration.RegisterOptions{
+		TermsOfServiceAgreed: true,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("unable to register")
+		return err
+	}
+
+	if err := user.SetRegistration(ctx, reg); err != nil {
+		return err
+	}
+
+	pk, err := cert.LoadOrCreateKeyFromCache(ctx, fsCache, domainKeyFile)
+	if err != nil {
+		return err
+	}
+
+	domain := ddCli.Domain() + ".duckdns.org"
+	req := certificate.ObtainRequest{
+		Domains:    []string{domain, "*." + domain},
+		Bundle:     true,
+		PrivateKey: pk,
+	}
+	certificates, err := legoCli.Certificate.Obtain(req)
+	if err != nil {
+		log.Error().Err(err).Msg("unable to obtain certificate")
+		return err
+	}
+	if err := fsCache.Put(ctx, domainKeyFile, certificates.PrivateKey); err != nil {
+		return err
+	}
+	if err := fsCache.Put(ctx, DomainCertFile, certificates.Certificate); err != nil {
 		return err
 	}
 	return nil
