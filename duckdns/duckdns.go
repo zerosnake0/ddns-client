@@ -3,9 +3,11 @@ package duckdns
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/go-acme/lego/certcrypto"
 	"github.com/go-acme/lego/certificate"
+	"github.com/go-acme/lego/challenge/dns01"
 	"github.com/go-acme/lego/lego"
 	"github.com/go-acme/lego/registration"
 	"github.com/rs/zerolog/log"
@@ -230,7 +232,9 @@ func Acme(ddCli *duckdns.Client, dirURL string, fsCache cache.Cache) error {
 		return err
 	}
 
-	err = legoCli.Challenge.SetDNS01Provider(duckdns.NewDuckDnsProvider(ddCli))
+	err = legoCli.Challenge.SetDNS01Provider(duckdns.NewDuckDnsProvider(ddCli),
+		// add dns timeout
+		dns01.AddDNSTimeout(time.Minute))
 	if err != nil {
 		log.Error().Err(err).Msg("unable to set dns01 provider")
 		return err
@@ -241,7 +245,7 @@ func Acme(ddCli *duckdns.Client, dirURL string, fsCache cache.Cache) error {
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("unable to register")
-		return err
+		return err	
 	}
 
 	if err := user.SetRegistration(ctx, reg); err != nil {

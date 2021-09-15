@@ -37,3 +37,7 @@ func (ddp *duckDnsProvider) CleanUp(domain, token, keyAuth string) error {
 func (ddp *duckDnsProvider) Sequential() time.Duration {
 	return dns01.DefaultPropagationTimeout
 }
+
+func (ddp *duckDnsProvider) Timeout() (timeout, interval time.Duration) {
+	return time.Minute * 5, time.Second * 5
+}

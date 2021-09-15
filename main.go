@@ -134,7 +134,7 @@ func getEngine() *gin.Engine {
 		res := ddRes
 		c.Status(http.StatusOK)
 		s := jzon.NewStreamer()
-		defer jzon.ReturnStreamer(s)
+		defer s.Release()
 		s.Reset(c.Writer)
 		if res == nil {
 			s.Null()
